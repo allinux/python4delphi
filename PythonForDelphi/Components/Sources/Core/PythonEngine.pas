@@ -9711,7 +9711,7 @@ begin
   try
 
     // 3.5
-    key := Format('\Software\Python\PythonCore\%s\InstallPath', [IfThen(PythonVersionFloat < 3.5, PythonVersion, PythonVersion + '-32')]);   // python 3.5 only 32bit
+    key := Format('\Software\Python\PythonCore\%s\InstallPath', [IfThen(PythonVersionFloat < 3.5, PythonVersion, PythonVersion {$IFDEF WIN32}+ '-32'{$ENDIF})]);   // python 3.5 only 32bit
 
     with TRegistry.Create(KEY_READ and not KEY_NOTIFY) do
       try
