@@ -126,7 +126,7 @@ type
   end;
 const
 {$IFDEF MSWINDOWS}
-  PYTHON_KNOWN_VERSIONS: array[1..10] of TPythonVersionProp =
+  PYTHON_KNOWN_VERSIONS: array[1..11] of TPythonVersionProp =
   ( (DllName: 'python23.dll'; RegVersion: '2.3'; APIVersion: 1012; CanUseLatest: True),
     (DllName: 'python24.dll'; RegVersion: '2.4'; APIVersion: 1012; CanUseLatest: True),
     (DllName: 'python25.dll'; RegVersion: '2.5'; APIVersion: 1013; CanUseLatest: True),
@@ -136,10 +136,11 @@ const
     (DllName: 'python31.dll'; RegVersion: '3.1'; APIVersion: 1013; CanUseLatest: True),
     (DllName: 'python32.dll'; RegVersion: '3.2'; APIVersion: 1013; CanUseLatest: True),
     (DllName: 'python33.dll'; RegVersion: '3.3'; APIVersion: 1013; CanUseLatest: True),
-    (DllName: 'python34.dll'; RegVersion: '3.4'; APIVersion: 1013; CanUseLatest: True) );
+    (DllName: 'python34.dll'; RegVersion: '3.4'; APIVersion: 1013; CanUseLatest: True),
+    (DllName: 'python35.dll'; RegVersion: '3.5'; APIVersion: 1013; CanUseLatest: True) );
 {$ENDIF}
 {$IFDEF LINUX}
-  PYTHON_KNOWN_VERSIONS: array[1..10] of TPythonVersionProp =
+  PYTHON_KNOWN_VERSIONS: array[1..11] of TPythonVersionProp =
   ( (DllName: 'libpython2.3.so'; RegVersion: '2.3'; APIVersion: 1012; CanUseLatest: True),
     (DllName: 'libpython2.4.so'; RegVersion: '2.4'; APIVersion: 1012; CanUseLatest: True),
     (DllName: 'libpython2.5.so'; RegVersion: '2.5'; APIVersion: 1013; CanUseLatest: True),
@@ -149,7 +150,8 @@ const
     (DllName: 'libpython3.1.so'; RegVersion: '3.1'; APIVersion: 1013; CanUseLatest: True),
     (DllName: 'libpython3.2.so'; RegVersion: '3.2'; APIVersion: 1013; CanUseLatest: True),
     (DllName: 'libpython3.3.so'; RegVersion: '3.3'; APIVersion: 1013; CanUseLatest: True),
-    (DllName: 'libpython3.4.so'; RegVersion: '3.4'; APIVersion: 1013; CanUseLatest: True) );
+    (DllName: 'libpython3.4.so'; RegVersion: '3.4'; APIVersion: 1013; CanUseLatest: True),
+    (DllName: 'libpython3.5.so'; RegVersion: '3.5'; APIVersion: 1013; CanUseLatest: True) );
 {$ENDIF}
 {$IFDEF PYTHON23}
   COMPILED_FOR_PYTHON_VERSION_INDEX = 1;
@@ -180,6 +182,9 @@ const
 {$ENDIF}
 {$IFDEF PYTHON34}
   COMPILED_FOR_PYTHON_VERSION_INDEX = 10;
+{$ENDIF}
+{$IFDEF PYTHON35}
+  COMPILED_FOR_PYTHON_VERSION_INDEX = 11;
 {$ENDIF}
   PYT_METHOD_BUFFER_INCREASE = 10;
   PYT_MEMBER_BUFFER_INCREASE = 10;
@@ -4895,6 +4900,7 @@ begin
           begin
             // try a current user installation
             RootKey := HKEY_CURRENT_USER;
+            key := Format('\Software\Python\PythonCore\%s-32\PythonPath', [RegVersion]);      // current only 32bit
             if not KeyExists( key ) then
             begin
               if Assigned( FOnPathInitialization ) then
@@ -9678,17 +9684,45 @@ function IsPythonVersionRegistered(PythonVersion : string;
   // since it may not be on the system path.
 var
   key: string;
+  PythonVersionFloat: Single;
+  // 3way operator function.
+  function IfThen(condition: Boolean; ifT, ifF: Cardinal): Cardinal; overload;
+  begin
+    if condition then
+      Result := ifT
+    else
+      Result := ifF;
+  end;
+
+  function IfThen(condition: Boolean; ifT, ifF: string): string; overload;
+  begin
+    if condition then
+        Result := ifT
+    else
+        Result := ifF;
+  end;
+
 begin
+
   Result := False;
   InstallPath := '';
   AllUserInstall := False;
+  PythonVersionFloat := StrToFloat(PythonVersion);
   try
-    key := Format('\Software\Python\PythonCore\%s\InstallPath', [PythonVersion]);
+
+    // 3.5
+    key := Format('\Software\Python\PythonCore\%s\InstallPath', [IfThen(PythonVersionFloat < 3.5, PythonVersion, PythonVersion + '-32')]);   // python 3.5 only 32bit
+
     with TRegistry.Create(KEY_READ and not KEY_NOTIFY) do
       try
-        RootKey := HKEY_LOCAL_MACHINE;
+
+        RootKey := IfThen(PythonVersionFloat < 3.5, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER);                                                  // python 3.5 => root registry key change
+
         if KeyExists(key) then begin
           AllUserInstall := True;
+          if PythonVersionFloat >= 3.5 then
+            if OpenKey(Key, False) then
+                InstallPath := ReadString('');              // python version 3.5 up
           Result := True;
         end;
       finally

@@ -31,7 +31,7 @@ requires
   vcl,
   dbrtl,
   bdertl,
-  Python_XE2;
+  Python_XE7;
 
 contains
   PythonDatabase in 'Sources\VCL\PythonDatabase.pas',

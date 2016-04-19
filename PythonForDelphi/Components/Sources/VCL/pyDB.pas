@@ -180,8 +180,15 @@ type
     function  Repr : PPyObject; override;
 
     // Sequence services
+{$IFDEF DELPHI2009_OR_HIGHER}
+    function  SqLength : NativeInt; override;
+    function  SqItem( idx : NativeInt ) : PPyObject; override;
+{$ELSE}
     function  SqLength : Integer; override;
     function  SqItem( idx : Integer ) : PPyObject; override;
+{$ENDIF}
+
+
 
     // Class methods
     class procedure RegisterMethods( PythonType : TPythonType ); override;
@@ -1629,8 +1636,11 @@ begin
 end;
 
 // Sequence services
-
+{$IFDEF DELPHI2009_OR_HIGHER}
+function  TPyDataset.SqLength : NativeInt;
+{$ELSE}
 function  TPyDataset.SqLength : Integer;
+{$ENDIF}
 begin
   if CheckDataset then
     Result := Dataset.RecordCount
@@ -1638,7 +1648,11 @@ begin
     Result := -1;
 end;
 
+{$IFDEF DELPHI2009_OR_HIGHER}
+function  TPyDataset.SqItem( idx : NativeInt ) : PPyObject;
+{$ELSE}
 function  TPyDataset.SqItem( idx : Integer ) : PPyObject;
+{$ENDIF}
 begin
   if CheckDataset then
     begin
