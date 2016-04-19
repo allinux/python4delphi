@@ -9685,6 +9685,8 @@ function IsPythonVersionRegistered(PythonVersion : string;
 var
   key: string;
   PythonVersionFloat: Single;
+  errorPos: Integer;
+
   // 3way operator function.
   function IfThen(condition: Boolean; ifT, ifF: Cardinal): Cardinal; overload;
   begin
@@ -9707,7 +9709,8 @@ begin
   Result := False;
   InstallPath := '';
   AllUserInstall := False;
-  PythonVersionFloat := StrToFloat(PythonVersion);
+  //PythonVersionFloat := StrToFloat(PythonVersion);
+  Val(PythonVersion, PythonVersionFloat, errorPos);
   try
 
     // 3.5
