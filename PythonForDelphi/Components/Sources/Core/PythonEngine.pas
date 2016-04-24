@@ -1379,7 +1379,7 @@ type
 
   {$IF not Defined(FPC) and (CompilerVersion >= 23)}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
-  {$IFEND}
+  {$ENDIF}
   TPythonInputOutput = class(TComponent)
   protected
     FMaxLines        : Integer;
@@ -1684,6 +1684,9 @@ type
     PyArg_Parse:        function( args: PPyObject; format: PAnsiChar {;....}) :  Integer; cdecl varargs;
     PyArg_ParseTuple:   function( args: PPyObject; format: PAnsiChar {;...}): Integer; cdecl varargs;
     Py_BuildValue:      function( format: PAnsiChar {;...}): PPyObject; cdecl varargs;
+
+    Py_SetPythonHome:   procedure( home: PAnsiChar); cdecl;
+
     Py_Initialize:      procedure; cdecl;
     Py_Exit:            procedure( RetVal: Integer); cdecl;
     PyEval_GetBuiltins: function: PPyObject; cdecl;
@@ -2120,7 +2123,7 @@ type
 
   {$IF not Defined(FPC) and (CompilerVersion >= 23)}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
-  {$IFEND}
+  {$ENDIF}
   TPythonEngine = class(TPythonInterface)
   private
     FInitScript:                 TStrings;
@@ -2588,7 +2591,7 @@ type
 
   {$IF not Defined(FPC) and (CompilerVersion >= 23)}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
-  {$IFEND}
+  {$ENDIF}
   TPythonModule = class(TMethodsContainer)
     protected
       FModuleName : AnsiString;
@@ -2853,7 +2856,7 @@ type
   // that creates instances of itself.
   {$IF not Defined(FPC) and (CompilerVersion >= 23)}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
-  {$IFEND}
+  {$ENDIF}
   TPythonType = class(TGetSetContainer)
     protected
       FType : PyTypeObject;
@@ -2941,7 +2944,7 @@ type
 
   {$IF not Defined(FPC) and (CompilerVersion >= 23)}
   [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
-  {$IFEND}
+  {$ENDIF}
   TPythonDelphiVar = class( TEngineClient )
     protected
       FModule    : AnsiString;
@@ -3098,6 +3101,7 @@ function  PyType_HasFeature(AType : PPyTypeObject; AFlag : Integer) : Boolean;
 {$IFDEF MSWINDOWS}
 function IsPythonVersionRegistered(PythonVersion : string;
   out InstallPath: string; out AllUserInstall: Boolean) : Boolean;
+function GetPythonHome(): string;
 {$ENDIF}
 (*
   Mask FPU Excptions - Useful for importing SciPy and other Python libs
@@ -3743,6 +3747,9 @@ begin
   PyArg_ParseTuple          := Import('PyArg_ParseTuple');
   Py_BuildValue             := Import('Py_BuildValue');
   Py_Initialize             := Import('Py_Initialize');
+  Py_SetPythonHome          := Import('Py_SetPythonHome');
+
+
   PyDict_New                := Import('PyDict_New');
   PyDict_SetItemString      := Import('PyDict_SetItemString');
   PyModule_GetDict          := Import('PyModule_GetDict');
@@ -4766,6 +4773,7 @@ procedure TPythonEngine.Initialize;
 
 var
   i : Integer;
+  PythonVersion: string;
 begin
   if Assigned(gPythonEngine) then
     raise Exception.Create('There is already one instance of TPythonEngine running' );
@@ -4795,6 +4803,11 @@ begin
     end
   end;
   AssignPyFlags;
+  PythonVersion := Format('%s.%s', [IntToStr(gPythonEngine.FMajorVersion), IntToStr(gPythonEngine.FMinorVersion)]);
+    if PythonVersion = '2.7' then
+        Py_SetPythonHome(PAnsiChar(AnsiString(GetPythonHome())));
+    //Py_SetPythonHome('C:\Python27_32');
+  //end;
   Py_Initialize;
   FInitialized := True;
   FIORedirected := False;
@@ -9714,7 +9727,7 @@ begin
   try
 
     // 3.5
-    key := Format('\Software\Python\PythonCore\%s\InstallPath', [IfThen(PythonVersionFloat < 3.5, PythonVersion, PythonVersion {$IFDEF WIN32}+ '-32'{$ENDIF})]);   // python 3.5 only 32bit
+    key := Format('\Software\Python\PythonCore\%s\InstallPath', [IfThen(PythonVersionFloat < 3.5, PythonVersion, PythonVersion {$IFDEF WIN32}+ '-32'{$ENDIF})]);
 
     with TRegistry.Create(KEY_READ and not KEY_NOTIFY) do
       try
@@ -9723,7 +9736,7 @@ begin
 
         if KeyExists(key) then begin
           AllUserInstall := True;
-          if PythonVersionFloat >= 3.5 then
+          if (PythonVersionFloat >= 3.5) then
             if OpenKey(Key, False) then
                 InstallPath := ReadString('');              // python version 3.5 up
           Result := True;
@@ -9738,7 +9751,7 @@ begin
   if not AllUserInstall then
     with TRegistry.Create(KEY_READ and not KEY_NOTIFY) do
       try
-        RootKey := HKEY_CURRENT_USER;
+        RootKey := IfThen(PythonVersionFloat < 3.5, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER);
         if OpenKey(Key, False) then begin
           InstallPath := ReadString('');
           Result := True;
@@ -9747,6 +9760,25 @@ begin
         Free;
       end;
 end;
+
+
+// for only 2.7
+function GetPythonHome(): string;
+var
+    temp: Boolean;
+    key: string;
+begin
+    with TRegistry.Create(KEY_READ and not KEY_NOTIFY) do
+    try
+        RootKey := HKEY_LOCAL_MACHINE;
+        key := Format('\Software\Python\PythonCore\%s\InstallPath', ['2.7']);
+        if OpenKey(Key, False) then
+            Result := ReadString('');
+    finally
+        Free;
+    end;
+end;
+
 {$ENDIF}
 
 end.
